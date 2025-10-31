@@ -38,7 +38,7 @@ class TelaPrincipal extends StatelessWidget {
       appBar: AppBar(title: const Text('Tela Principal (Em construção)')),
       body: Center(
         child: Text(
-          'Bem Vindo, ${cliente.nome}!!',
+          'Bem Vindo, ${cliente.nome}!!!',
           style: const TextStyle(fontSize: 24),
         ),
       ),
