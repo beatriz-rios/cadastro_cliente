@@ -1,16 +1,31 @@
+// lib/main.dart (INÍCIO ATUALIZADO)
 import 'package:flutter/material.dart';
-import 'package:gerenciador_cliente/modelos/cliente.dart'; //importa nosso modelo de BD
+import 'modelos/cliente.dart'; // Importa o modelo.
+import 'package:firebase_core/firebase_core.dart'; // NOVO: Para iniciar o Firebase.
+
+// NOVO: Importe o arquivo de opções do seu projeto gerado pelo FlutterFire CLI
+import 'firebase_options.dart';
+
 
 //instaciano nosso BD
-final GerenciadorClientes gerenciadorClientes = GerenciadorClientes();
+// NOVO: Substituímos o GerenciadorClientes pelo ServicoClientes.
+final ServicoClientes servicoClientes = ServicoClientes();
 
-void main() {
-  gerenciadorClientes.cadastrar(
-    Cliente(nome: 'Admin', email: 'admin@email.com', senha: 'admin'),
+
+// A função main agora é assíncrona para inicializar o Firebase.
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Garante que o Flutter está pronto.
+
+  // Inicializa o Firebase (OBRIGATÓRIO).
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(const AplicativoClientes());
 }
-
+// ...
+// O restante da classe AplicativoClientes permanece o mesmo...
+// ...
 class AplicativoClientes extends StatelessWidget {
   const AplicativoClientes({super.key});
 
@@ -85,12 +100,30 @@ class TelaPrincipal extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               // Lista de Clientes Cadastrados
-              Expanded(
+              
+                  // NOVO: StreamBuilder para atualizar a lista em tempo real
+     StreamBuilder<List<Cliente>>(
+      // Conecta ao Stream de clientes do nosso serviço Firebase.
+      stream: servicoClientes.clientesStream,
+      builder: (context, snapshot) {
+        // 1. Se houver erro.
+        if (snapshot.hasError) {
+          return const Text('Erro ao carregar clientes.');
+        }
+
+        // 2. Se estiver carregando.
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        // 3. Se os dados estiverem prontos.
+        final clientes = snapshot.data ?? [];
+             return Expanded(
                 // Usa o getter 'clientes' do nosso gerenciador.
                 child: ListView.builder(
-                  itemCount: gerenciadorClientes.clientes.length,
+                  itemCount: clientes.length,
                   itemBuilder: (context, index) {
-                    final c = gerenciadorClientes.clientes[index];
+                    final c = clientes[index];
                     return ListTile(
                       leading: const Icon(Icons.person),
                       title: Text(c.nome),
@@ -98,14 +131,20 @@ class TelaPrincipal extends StatelessWidget {
                     );
                   },
                 ),
-              ),
+             );
+      }
+    ),
+  
             ],
           ),
         ),
       ),
     );
+  
   }
 }
+
+
 
 class TelaCadastro extends StatefulWidget {
   const TelaCadastro({super.key});
@@ -121,16 +160,17 @@ class _EstadoTelaCadastro extends State<TelaCadastro> {
   final _senhaController = TextEditingController();
   String _mensagemErro = '';
 
-  void _fazerCadastro() {
+  void _fazerCadastro() async {
     if (_chaveForm.currentState!.validate()) { // Se a validação dos campos for OK...
-      final novoCliente = Cliente(
+      setState(() => _mensagemErro = '');
+ final novoCliente = Cliente(
         nome: _nomeController.text.trim(),
         email: _emailController.text.trim(),
         senha: _senhaController.text,
       );
 
       // Tenta cadastrar no BD simulado.
-      final sucesso = gerenciadorClientes.cadastrar(novoCliente);
+      final sucesso =  await servicoClientes.cadastrar(novoCliente); // <-- AWAIT AQUI!
 
       if (sucesso) {
         // Se sucesso: exibe uma notificação e volta para a tela de Login.
@@ -226,7 +266,7 @@ class _EstadoTelaLogin extends State<TelaLogin> {
   final _senhaController = TextEditingController();
   String _mensagemErro = '';
 
-  void _fazerLogin() {
+  void _fazerLogin() async {
     // 1. Validação dos campos
     if (_chaveForm.currentState!.validate()) {
       setState(() => _mensagemErro = ''); // Limpa erro.
@@ -235,7 +275,7 @@ class _EstadoTelaLogin extends State<TelaLogin> {
       final senha = _senhaController.text;
 
       // 2. Chama o método 'login' do nosso BD simulado.
-      final clienteLogado = gerenciadorClientes.login(email, senha);
+      final clienteLogado = await servicoClientes.login(email, senha); // <-- AWAIT AQUI!
 
       if (clienteLogado != null) {
         // 3. Login de sucesso: Navega para a tela principal (substituindo o Login).
